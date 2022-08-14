@@ -104,6 +104,8 @@ class KNearestNeighbor(object):
 
             pass
 
+            dists[i] = np.sqrt(np.sum((self.X_train - X[i]) ** 2, 1))
+
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
 
@@ -133,6 +135,10 @@ class KNearestNeighbor(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         pass
+        c = np.sum(np.square(self.X_train), axis=1)
+        b = -2 * np.dot(X, self.X_train.T)
+        a = np.transpose([np.sum(np.square(X), axis=1)])
+        dists = np.sqrt(a + b + c)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
