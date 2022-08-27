@@ -1,6 +1,6 @@
 from builtins import range
+from tkinter import W
 import numpy as np
-
 
 
 def affine_forward(x, w, b):
@@ -29,7 +29,8 @@ def affine_forward(x, w, b):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     pass
-
+    x = x.reshape(x.shape[0], -1)
+    out = np.dot(x, w)+b
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -62,6 +63,9 @@ def affine_backward(dout, cache):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     pass
+    dx = np.reshape(dout @ w.T, x.shape)
+    dw = np.reshape(x, (x.shape[0], -1)).T @ dout
+    db = np.sum(dout, axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -86,7 +90,8 @@ def relu_forward(x):
     # TODO: Implement the ReLU forward pass.                                  #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    out = x.copy()
+    out[x < 0] = 0
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -116,6 +121,9 @@ def relu_backward(dout, cache):
 
     pass
 
+    dx = np.zeros(x.shape)
+    dx[x > 0] = 1
+    dx = np.multiply(dx, dout)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -774,6 +782,24 @@ def svm_loss(x, y):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     pass
+    loss = 0.
+    dx = np.zeros_like(x)
+
+    num_train = x.shape[0]
+    num_classes = x.shape[1]
+    scores = x
+    correct_class_scores = scores[np.arange(num_train), y]
+    margins = scores-np.expand_dims(correct_class_scores, axis=1)+1
+    margins[np.arange(num_train), y] = 0.0
+    margins[margins < 0] = 0.0
+    loss = np.sum(margins)/num_train  # No need of nested nu.sum()
+    margins[margins > 0] = 1.0
+
+    row_sum = np.sum(margins, axis=1)
+    #margins[np.arange(num_train),y] = -row_sum
+    for i in range(num_train):
+        margins[i, y[i]] = -row_sum[i]
+    dx = margins/num_train
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -804,6 +830,18 @@ def softmax_loss(x, y):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     pass
+    num_train = x.shape[0]
+    scores = x
+    scores = scores-np.max(scores, axis=1, keepdims=True)
+    exp_scores = np.exp(scores)
+    probs = exp_scores/np.sum(exp_scores, axis=1, keepdims=True)
+    loss = -np.sum(np.log(probs[range(num_train), y]))
+
+    dx = probs
+    dx[range(num_train), y] -= 1
+
+    loss /= num_train
+    dx /= num_train
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
