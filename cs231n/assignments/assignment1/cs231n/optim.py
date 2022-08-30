@@ -69,7 +69,7 @@ def sgd_momentum(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    
     v = config['momentum']*v+dw
     next_w = w - config["learning_rate"] * v
     config["velocity"] = v

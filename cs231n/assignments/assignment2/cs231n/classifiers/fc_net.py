@@ -1,3 +1,4 @@
+from ast import Num
 from builtins import range
 from builtins import object
 import numpy as np
@@ -74,7 +75,39 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        ''' 
+        # 第一层和最后一层的处理是不一样的，中间层是一样的，下面有更好的方法
+        self.params["W"+str(1)] = np.random.normal(loc=0.,
+                                                   scale=weight_scale, size=(input_dim, hidden_dims[0]))
+        self.params["b"+str(1)] = np.zeros((hidden_dims[0],))
+
+        for k in range(2, self.num_layers):
+            self.params["W"+str(k)] = np.random.normal(loc=0.,
+                                                       scale=weight_scale, size=(hidden_dims[k-2], hidden_dims[k-1]))
+            self.params["b"+str(k)] = np.zeros((hidden_dims[k-1],))
+
+        self.params['W'+str(self.num_layers)] = np.random.normal(loc=0.0,
+                                                                 scale=weight_scale, size=(hidden_dims[-1], num_classes))
+        self.params['b'+str(self.num_layers)] = np.zeros((num_classes,))
+        '''
+
+        layer_dims = np.hstack((input_dim, hidden_dims, num_classes))
+
+        for i in range(self.num_layers):
+            W = np.random.normal(loc=0.0, scale=weight_scale, size=(
+                layer_dims[i], layer_dims[i+1]))
+            b = np.zeros(layer_dims[i+1])
+
+            self.params['W' + str(i+1)] = W
+            self.params['b'+str(i+1)] = b
+
+        if normalization != None:
+            for i in range(self.num_layers-1):
+                gamma = np.ones(layer_dims[i+1])
+                beta = np.zeros(layer_dims[i+1])
+
+                self.params['gamma'+str(i+1)] = gamma
+                self.params['beta'+str(i+1)] = beta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -97,7 +130,8 @@ class FullyConnectedNet(object):
         # pass of the second batch normalization layer, etc.
         self.bn_params = []
         if self.normalization == "batchnorm":
-            self.bn_params = [{"mode": "train"} for i in range(self.num_layers - 1)]
+            self.bn_params = [{"mode": "train"}
+                              for i in range(self.num_layers - 1)]
         if self.normalization == "layernorm":
             self.bn_params = [{} for i in range(self.num_layers - 1)]
 
@@ -107,7 +141,7 @@ class FullyConnectedNet(object):
 
     def loss(self, X, y=None):
         """Compute loss and gradient for the fully connected net.
-        
+
         Inputs:
         - X: Array of input data of shape (N, d_1, ..., d_k)
         - y: Array of labels, of shape (N,). y[i] gives the label for X[i].
@@ -148,7 +182,27 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        layer_in = X
+        cache = dict()
+
+        # 前面的L-1层
+        for k in range(1, self.num_layers):
+            W = self.params['W'+str(k)]
+            b = self.params['b'+str(k)]
+
+            affine_out, affine_cache = affine_forward(layer_in, W, b)
+            relu_out, relu_cache = relu_forward(affine_out)
+            layer_in = relu_out
+            cache['affine_cache'+str(k)] = affine_cache
+            cache['relu_cache'+str(k)] = relu_cache
+
+        # 最后一层
+        W = self.params['W'+str(self.num_layers)]
+        b = self.params['b'+str(self.num_layers)]
+
+        affine_out, affine_cache = affine_forward(layer_in, W, b)
+        scores = affine_out
+        cache['affine_cache'+str(self.num_layers)] = affine_cache
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -175,7 +229,33 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # 计算loss
+        loss, d_affine_out = softmax_loss(scores, y)
+        for k in range(1, self.num_layers+1):
+            W = self.params["W"+str(k)]
+            loss += 0.5*(self.reg)*np.sum(np.square(W))
+
+        # 最后一层的反向传播
+        W = self.params["W"+str(self.num_layers)]
+        b = self.params["b"+str(self.num_layers)]
+        affine_cache = cache["affine_cache"+str(self.num_layers)]
+        d_relu_out, dw, db = affine_backward(d_affine_out, affine_cache)
+        dw += W*self.reg
+        grads["W"+str(self.num_layers)] = dw
+        grads["b"+str(self.num_layers)] = db
+
+        # 其他层的反向传播
+        for k in range(self.num_layers-1, 0, -1):
+            W = self.params["W"+str(k)]
+            b = self.params["b"+str(k)]
+            affine_cache = cache["affine_cache"+str(k)]
+            relu_cache = cache["relu_cache"+str(k)]
+
+            d_affine_out = relu_backward(d_relu_out, relu_cache)
+            d_relu_out, dw, db = affine_backward(d_affine_out, affine_cache)
+            dw += W*self.reg
+            grads["W"+str(k)] = dw
+            grads["b"+str(k)] = db
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

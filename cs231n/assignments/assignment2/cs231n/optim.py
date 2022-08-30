@@ -69,7 +69,12 @@ def sgd_momentum(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    mu = config["momentum"]
+    lr = config["learning_rate"]
+
+    v = mu*v-lr*dw
+    next_w = w+v
+    # 这里的更新规则与 assignment1 中的不同
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -107,7 +112,11 @@ def rmsprop(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    s = config["cache"]
+    s = config["decay_rate"]*s+(1-config["decay_rate"])*dw*dw
+    next_w = w - config["learning_rate"]*dw*(1./np.sqrt(s+config['epsilon']))
+
+    config["cache"] = s
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -139,7 +148,7 @@ def adam(w, dw, config=None):
     config.setdefault("epsilon", 1e-8)
     config.setdefault("m", np.zeros_like(w))
     config.setdefault("v", np.zeros_like(w))
-    config.setdefault("t", 0)
+    config.setdefault("t", 2)
 
     next_w = None
     ###########################################################################
@@ -151,8 +160,16 @@ def adam(w, dw, config=None):
     # using it in any calculations.                                           #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    t = config["t"]
+    m = config["m"]
+    v = config["v"]
+    m = config["beta1"]*m+(1-config["beta1"])*dw
+    v = config["beta2"]*v+(1-config["beta2"])*dw*dw
+    # _m = m/(1-config["beta1"]**t)
+    # _v = v/(1-config["beta2"]**t)
+    next_w = w-config["learning_rate"]*m/np.sqrt(v+config["epsilon"])
+    config["v"] = v
+    config["m"] = m
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
