@@ -300,12 +300,12 @@ def batchnorm_backward(dout, cache):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     x, x_norm, gamma, sample_mean, sample_var, eps = cache
-    dgamma=np.sum(dout*x_norm,axis=0)
-    dbeta=np.sum(dout,axis=0)
-    dx_norm=dout*gamma
+    dgamma = np.sum(dout*x_norm, axis=0)
+    dbeta = np.sum(dout, axis=0)
+    dx_norm = dout*gamma
     dvar = np.sum(dx_norm * (-0.5 * (x - sample_mean) *
-                                 ((sample_var + eps)**(-1.5))),
-                    			 axis=0)
+                             ((sample_var + eps)**(-1.5))),
+                  axis=0)
     du = np.sum(-1 / np.sqrt(sample_var + eps) * dx_norm, axis=0)
     dx = dx_norm*(1/np.sqrt(sample_var+eps))+dvar * \
         (2/x.shape[0])*(x-sample_mean)+du/x.shape[0]
@@ -399,7 +399,14 @@ def layernorm_forward(x, gamma, beta, ln_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    sample_mean = np.mean(x, axis=1, keepdims=True)
+    sample_var = np.var(x, axis=1, keepdims=True)
+    std = np.sqrt(sample_var+eps)
+
+    x_norm = (x-sample_mean)/std
+    out = x_norm*gamma+beta
+
+    cache = (x, x_norm, gamma, sample_mean, sample_var, eps)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -433,7 +440,17 @@ def layernorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, x_norm, gamma, x_mean, x_var, eps = cache
+    dgamma = np.sum(dout * x_norm, axis=0)  # 注意这个 *gamma 不是点乘
+    dbeta = np.sum(dout, axis=0)  # 求出 dbeta
+
+    D = 1.0 * x.shape[1]
+    dldx_norm = dout * gamma
+    dldvar = np.sum(-0.5 * dldx_norm * (x - x_mean) * ((x_var + eps)**-1.5),
+                    axis=1)
+    dldu = np.sum(-dldx_norm / np.sqrt(x_var + eps), axis=1)
+    dx = dldx_norm/np.sqrt(x_var+eps)+dldu.reshape(-1, 1) / \
+        D+dldvar.reshape(-1, 1)*2/D*(x-x_mean)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

@@ -1,6 +1,7 @@
 from ast import Num
 from builtins import range
 from builtins import object
+from sqlite3 import SQLITE_FUNCTION
 import numpy as np
 
 from ..layers import *
@@ -182,28 +183,39 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        layer_in = X
-        cache = dict()
+        x = X
+        caches = []
+        drop_caches = []
 
-        # 前面的L-1层
-        for k in range(1, self.num_layers):
-            W = self.params['W'+str(k)]
-            b = self.params['b'+str(k)]
+        for i in range(self.num_layers-1):
+            W = self.params['W'+str(i+1)]
+            b = self.params['b'+str(i+1)]
 
-            affine_out, affine_cache = affine_forward(layer_in, W, b)
-            relu_out, relu_cache = relu_forward(affine_out)
-            layer_in = relu_out
-            cache['affine_cache'+str(k)] = affine_cache
-            cache['relu_cache'+str(k)] = relu_cache
+            # 无 BN，无 dropout
+            if self.normalization == None:
+                out, cache = affine_relu_forward(x, W, b)
 
-        # 最后一层
-        W = self.params['W'+str(self.num_layers)]
-        b = self.params['b'+str(self.num_layers)]
+            elif self.normalization == 'batchnorm':
+                gamma = self.params['gamma'+str(i+1)]
+                beta = self.params['beta'+str(i+1)]
+                bn_param = self.bn_params[i]
+                out, cache = affine_bn_relu_forward(
+                    x, W, b, gamma, beta, bn_param)
 
-        affine_out, affine_cache = affine_forward(layer_in, W, b)
-        scores = affine_out
-        cache['affine_cache'+str(self.num_layers)] = affine_cache
+            elif self.normalization == 'layernorm':
+                gamma = self.params['gamma'+str(i+1)]
+                beta = self.params['beta'+str(i+1)]
+                ln_param = self.bn_params[i]
+                out, cache = affine_ln_relu_forward(
+                    x, W, b, gamma, beta, ln_param)
 
+            # 保存
+            caches.append(cache)  # 保存了当前层的输入信息
+            x = out
+
+        scores, cache = affine_forward(
+            x, self.params['W'+str(self.num_layers)], self.params['b'+str(self.num_layers)])
+        caches.append(cache)
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -228,7 +240,7 @@ class FullyConnectedNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+        '''这是原来的代码,使用layer_utils中的api更快
         # 计算loss
         loss, d_affine_out = softmax_loss(scores, y)
         for k in range(1, self.num_layers+1):
@@ -238,7 +250,7 @@ class FullyConnectedNet(object):
         # 最后一层的反向传播
         W = self.params["W"+str(self.num_layers)]
         b = self.params["b"+str(self.num_layers)]
-        affine_cache = cache["affine_cache"+str(self.num_layers)]
+        affine_cache = cache[-1]
         d_relu_out, dw, db = affine_backward(d_affine_out, affine_cache)
         dw += W*self.reg
         grads["W"+str(self.num_layers)] = dw
@@ -248,14 +260,52 @@ class FullyConnectedNet(object):
         for k in range(self.num_layers-1, 0, -1):
             W = self.params["W"+str(k)]
             b = self.params["b"+str(k)]
-            affine_cache = cache["affine_cache"+str(k)]
-            relu_cache = cache["relu_cache"+str(k)]
+            affine_cache = cache[k-1]
+            relu_cache = cache[k-1]
 
             d_affine_out = relu_backward(d_relu_out, relu_cache)
             d_relu_out, dw, db = affine_backward(d_affine_out, affine_cache)
             dw += W*self.reg
             grads["W"+str(k)] = dw
             grads["b"+str(k)] = db
+        '''
+        loss, dscores = softmax_loss(scores, y)  # 计算损失（不完整）以及反向传播过来的梯度
+        for i in range(self.num_layers):  # 一定要记得加上L2正则惩罚项，这样就计算得到完整的损失了
+            W = self.params['W'+str(i+1)]
+            loss += 0.5*self.reg*np.sum(W**2)
+
+        # 计算最后一层传播过来的梯度
+        dout, dW, db = affine_backward(dscores, caches[self.num_layers-1])
+        dW += self.reg*self.params['W'+str(self.num_layers)]
+
+        grads['W'+str(self.num_layers)] = dW
+        grads['b'+str(self.num_layers)] = db
+
+        # 计算前n-1层的梯度
+        for i in range(self.num_layers-2, -1, -1):
+            if self.normalization == None:
+                dout, dW, db = affine_relu_backward(dout, caches[i])
+                dW += self.reg*self.params['W'+str(i+1)]
+                grads['W'+str(i+1)] = dW
+                grads['b'+str(i+1)] = db
+
+            elif self.normalization == 'batchnorm':
+                dout, dW, db, dgamma, dbeta = affine_bn_relu_backward(
+                    dout, caches[i])
+                dW += self.reg*self.params['W'+str(i+1)]
+                grads['W'+str(i+1)] = dW
+                grads['b'+str(i+1)] = db
+                grads['gamma'+str(i+1)] = dgamma
+                grads['beta'+str(i+1)] = dbeta
+
+            elif self.normalization == 'layernorm':
+                dout, dW, db, dgamma, dbeta = affine_ln_relu_backward(
+                    dout, caches[i])
+                dW += self.reg*self.params['W'+str(i+1)]
+                grads['W'+str(i+1)] = dW
+                grads['b'+str(i+1)] = db
+                grads['gamma'+str(i+1)] = dgamma
+                grads['beta'+str(i+1)] = dbeta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
